@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Media Browser</title>
+</head>
+<body>
+<h1>{{.PageTitle}}</h1>
+<ul>
+    {{range .Files}}
+        <li><a href="#">{{.Name}}</a></li>
+    {{end}}
+</ul>
+</body>
+</html>
