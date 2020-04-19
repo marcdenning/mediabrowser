@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -25,24 +26,43 @@ func (blobHandler BlobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	requestPath := r.URL.EscapedPath()
 	log.Printf("Received request for path %s\n", requestPath)
 
-	tmpl := template.Must(template.ParseFiles("layouts/file-index.html"))
-	files := blobHandler.blobService.Files(strings.Replace(requestPath, "/", "", 1))
+	if path.Ext(requestPath) == "" {
+		tmpl := template.Must(template.ParseFiles("layouts/file-index.html"))
 
-	if requestPath != "/" {
-		files = append(files, File{
-			Name:        "..",
-			IsDirectory: true,
-			Path:        path.Dir(requestPath),
+		if !strings.HasSuffix(requestPath, "/") {
+			requestPath += "/"
+		}
+		objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
+		if err != nil {
+			log.Fatal(err)
+		}
+		files := blobHandler.blobService.Files(objectName)
+
+		if requestPath != "/" {
+			files = append(files, File{
+				Name:        "..",
+				IsDirectory: true,
+				Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
+			})
+		}
+
+		err = tmpl.Execute(w, FilePageData{
+			PageTitle: "Media Browser",
+			Files:     files,
 		})
+		if err != nil {
+			log.Print(err)
+		}
+		return
 	}
-
-	err := tmpl.Execute(w, FilePageData{
-		PageTitle: "Media Browser",
-		Files:     files,
-	})
+	objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
 	if err != nil {
-		log.Print(err)
+		log.Fatal(err)
 	}
+	objectName = strings.TrimPrefix(objectName, "/")
+	file := blobHandler.blobService.File(objectName)
+	w.Header().Add("Location", file.Path)
+	w.WriteHeader(302)
 }
 
 func main() {
