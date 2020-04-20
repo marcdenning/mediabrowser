@@ -18,51 +18,67 @@ type FilePageData struct {
 	Files     []File
 }
 
-type BlobHandler struct {
-	blobService BlobService
+func authenticateHandler(handler func(w http.ResponseWriter, r *http.Request), username, password string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		providedUser, providedPass, ok := r.BasicAuth()
+		if !ok {
+			log.Println("Could not find or parse Authorization header.")
+			w.Header().Add("WWW-Authenticate", "Basic realm=\"mediabrowser\"")
+			http.Error(w, "Could not find or parse Authorization header.", http.StatusUnauthorized)
+			return
+		}
+		if username != providedUser || password != providedPass {
+			log.Println("Invalid credentials provided.")
+			w.Header().Add("WWW-Authenticate", "Basic realm=\"mediabrowser\"")
+			http.Error(w, "Invalid credentials provided.", http.StatusUnauthorized)
+			return
+		}
+		handler(w, r)
+	}
 }
 
-func (blobHandler BlobHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestPath := r.URL.EscapedPath()
-	log.Printf("Received request for path %s\n", requestPath)
+func serveBlobs(service BlobService) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestPath := r.URL.EscapedPath()
+		log.Printf("Received request for path %s\n", requestPath)
 
-	if path.Ext(requestPath) == "" {
-		tmpl := template.Must(template.ParseFiles("layouts/file-index.html"))
+		if path.Ext(requestPath) == "" {
+			tmpl := template.Must(template.ParseFiles("layouts/file-index.html"))
 
-		if !strings.HasSuffix(requestPath, "/") {
-			requestPath += "/"
+			if !strings.HasSuffix(requestPath, "/") {
+				requestPath += "/"
+			}
+			objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
+			if err != nil {
+				log.Fatal(err)
+			}
+			files := service.Files(objectName)
+
+			if requestPath != "/" {
+				files = append(files, File{
+					Name:        "..",
+					IsDirectory: true,
+					Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
+				})
+			}
+
+			err = tmpl.Execute(w, FilePageData{
+				PageTitle: "Media Browser",
+				Files:     files,
+			})
+			if err != nil {
+				log.Print(err)
+			}
+			return
 		}
 		objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
 		if err != nil {
 			log.Fatal(err)
 		}
-		files := blobHandler.blobService.Files(objectName)
-
-		if requestPath != "/" {
-			files = append(files, File{
-				Name:        "..",
-				IsDirectory: true,
-				Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
-			})
-		}
-
-		err = tmpl.Execute(w, FilePageData{
-			PageTitle: "Media Browser",
-			Files:     files,
-		})
-		if err != nil {
-			log.Print(err)
-		}
-		return
+		objectName = strings.TrimPrefix(objectName, "/")
+		file := service.File(objectName)
+		http.Redirect(w, r, file.Path, http.StatusFound)
 	}
-	objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
-	if err != nil {
-		log.Fatal(err)
-	}
-	objectName = strings.TrimPrefix(objectName, "/")
-	file := blobHandler.blobService.File(objectName)
-	w.Header().Add("Location", file.Path)
-	w.WriteHeader(302)
 }
 
 func main() {
@@ -71,15 +87,26 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	handler := BlobHandler{blobService: BlobService{
+	blobService := BlobService{
 		context:       ctx,
 		storageClient: *client,
 		bucketName:    os.Getenv("BUCKET_NAME"),
-	}}
+	}
 
 	log.Print("Media browser started.")
 
-	http.Handle("/", handler)
+	var handler http.HandlerFunc
+	username, ok := os.LookupEnv("WEB_USERNAME")
+	password, ok := os.LookupEnv("WEB_PASSWORD")
+
+	if !ok {
+		log.Println("Variables WEB_USERNAME and WEB_PASSWORD not set. Will not authenticate requests.")
+		handler = serveBlobs(blobService)
+	} else {
+		handler = authenticateHandler(serveBlobs(blobService), username, password)
+	}
+
+	http.HandleFunc("/", handler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
