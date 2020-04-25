@@ -3,12 +3,16 @@ package main
 import (
 	"cloud.google.com/go/storage"
 	"context"
+	"errors"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
+)
+
+var (
+	ErrFileNotFound = errors.New("specified file could not be found")
 )
 
 type File struct {
@@ -17,13 +21,13 @@ type File struct {
 	Path        string
 }
 
-type BlobService struct {
+type BlobStore struct {
 	context       context.Context
 	storageClient storage.Client
 	bucketName    string
 }
 
-func (service BlobService) Files(name string) []File {
+func (service BlobStore) Files(name string) ([]File, error) {
 	bucket := service.storageClient.Bucket(service.bucketName)
 	query := &storage.Query{
 		Delimiter: "/",
@@ -38,7 +42,7 @@ func (service BlobService) Files(name string) []File {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		if attrs.Prefix != "" {
 			files = append(files, File{
@@ -53,30 +57,35 @@ func (service BlobService) Files(name string) []File {
 			})
 		}
 	}
-	return files
+	return files, nil
 }
 
-func (service BlobService) File(name string) File {
+func (service BlobStore) File(name string) (File, error) {
 	bucket := service.storageClient.Bucket(service.bucketName)
 	object := bucket.Object(name)
 	attrs, err := object.Attrs(service.context)
 	if err != nil {
-		log.Fatal(err)
+		switch err {
+		default:
+			return File{}, err
+		case storage.ErrObjectNotExist:
+			return File{}, ErrFileNotFound
+		}
 	}
 
 	oneDay, err := time.ParseDuration("24h")
 	if err != nil {
-		log.Fatal(err)
+		return File{}, err
 	}
 
 	jsonKey, err := ioutil.ReadFile(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 	if err != nil {
-		log.Fatal(err)
+		return File{}, err
 	}
 
 	conf, err := google.JWTConfigFromJSON(jsonKey)
 	if err != nil {
-		log.Fatal(err)
+		return File{}, err
 	}
 
 	signedUrl, err := storage.SignedURL(service.bucketName, name, &storage.SignedURLOptions{
@@ -87,10 +96,10 @@ func (service BlobService) File(name string) File {
 		Scheme:         storage.SigningSchemeV4,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return File{}, err
 	}
 	return File{
 		Name: attrs.Name,
 		Path: signedUrl,
-	}
+	}, nil
 }

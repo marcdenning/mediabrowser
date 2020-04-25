@@ -37,7 +37,7 @@ func authenticateHandler(handler func(w http.ResponseWriter, r *http.Request), u
 	}
 }
 
-func serveBlobs(service BlobService) func(w http.ResponseWriter, r *http.Request) {
+func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestPath := r.URL.EscapedPath()
 		log.Printf("Received request for path %s\n", requestPath)
@@ -50,10 +50,16 @@ func serveBlobs(service BlobService) func(w http.ResponseWriter, r *http.Request
 			}
 			objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
 			if err != nil {
-				log.Fatal(err)
+				log.Println("Could not parse request path.", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
-			files := service.Files(objectName)
+			files, err := service.Files(objectName)
 
+			if err != nil {
+				log.Println(err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			if requestPath != "/" {
 				files = append(files, File{
 					Name:        "..",
@@ -67,16 +73,33 @@ func serveBlobs(service BlobService) func(w http.ResponseWriter, r *http.Request
 				Files:     files,
 			})
 			if err != nil {
-				log.Print(err)
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			return
 		}
+
 		objectName, err := url.PathUnescape(strings.Replace(requestPath, "/", "", 1))
 		if err != nil {
-			log.Fatal(err)
+			log.Println("Could not parse request path.", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		objectName = strings.TrimPrefix(objectName, "/")
-		file := service.File(objectName)
+		file, err := service.File(objectName)
+
+		if err != nil {
+			log.Println("Could not retrieve file info.", err)
+			switch err {
+			default:
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			case ErrFileNotFound:
+				http.NotFound(w, r)
+				return
+			}
+		}
+
 		http.Redirect(w, r, file.Path, http.StatusFound)
 	}
 }
@@ -87,7 +110,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	blobService := BlobService{
+	blobService := BlobStore{
 		context:       ctx,
 		storageClient: *client,
 		bucketName:    os.Getenv("BUCKET_NAME"),
