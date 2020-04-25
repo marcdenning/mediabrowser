@@ -1,4 +1,4 @@
-module media-browser
+module mediabrowser
 
 go 1.14
 
