@@ -6,8 +6,6 @@ import (
 	"errors"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
-	"io/ioutil"
-	"os"
 	"time"
 )
 
@@ -78,12 +76,12 @@ func (service BlobStore) File(name string) (File, error) {
 		return File{}, err
 	}
 
-	jsonKey, err := ioutil.ReadFile(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	creds, err := google.FindDefaultCredentials(service.context, storage.ScopeFullControl)
 	if err != nil {
 		return File{}, err
 	}
 
-	conf, err := google.JWTConfigFromJSON(jsonKey)
+	conf, err := google.JWTConfigFromJSON(creds.JSON)
 	if err != nil {
 		return File{}, err
 	}
