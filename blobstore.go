@@ -1,11 +1,13 @@
 package main
 
 import (
+	"cloud.google.com/go/iam/credentials/apiv1"
 	"cloud.google.com/go/storage"
 	"context"
 	"errors"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
+	credentials2 "google.golang.org/genproto/googleapis/iam/credentials/v1"
 	"time"
 )
 
@@ -86,13 +88,20 @@ func (service BlobStore) File(name string) (File, error) {
 		return File{}, err
 	}
 
-	signedUrl, err := storage.SignedURL(service.bucketName, name, &storage.SignedURLOptions{
+	opts := storage.SignedURLOptions{
 		Expires:        time.Now().Add(oneDay),
 		GoogleAccessID: conf.Email,
-		PrivateKey:     conf.PrivateKey,
 		Method:         "GET",
 		Scheme:         storage.SigningSchemeV4,
-	})
+	}
+
+	if conf.PrivateKey == nil || len(conf.PrivateKey) == 0 {
+		opts.SignBytes = signBytes(conf.Email, service.context)
+	} else {
+		opts.PrivateKey = conf.PrivateKey
+	}
+
+	signedUrl, err := storage.SignedURL(service.bucketName, name, &opts)
 	if err != nil {
 		return File{}, err
 	}
@@ -100,4 +109,25 @@ func (service BlobStore) File(name string) (File, error) {
 		Name: attrs.Name,
 		Path: signedUrl,
 	}, nil
+}
+
+func signBytes(account string, context context.Context) func([]byte) ([]byte, error) {
+	return func(bytes []byte) ([]byte, error) {
+		client, err := credentials.NewIamCredentialsClient(context)
+		if err != nil {
+			return nil, err
+		}
+		name := "projects/-/serviceAccounts/" + account
+		resp, err := client.SignBlob(context, &credentials2.SignBlobRequest{
+			Name: name,
+			Delegates: []string{
+				name,
+			},
+			Payload: bytes,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return resp.SignedBlob, nil
+	}
 }
