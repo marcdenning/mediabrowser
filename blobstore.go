@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	credentials2 "google.golang.org/genproto/googleapis/iam/credentials/v1"
+	"log"
 	"time"
 )
 
@@ -35,6 +36,7 @@ func (service BlobStore) Files(name string) ([]File, error) {
 	}
 
 	var files []File
+	log.Printf("Requesting objects matching %s\n", name)
 	it := bucket.Objects(service.context, query)
 	for {
 		attrs, err := it.Next()
@@ -63,6 +65,8 @@ func (service BlobStore) Files(name string) ([]File, error) {
 func (service BlobStore) File(name string) (File, error) {
 	bucket := service.storageClient.Bucket(service.bucketName)
 	object := bucket.Object(name)
+
+	log.Printf("Retrieve attributes for object %s\n", name)
 	attrs, err := object.Attrs(service.context)
 	if err != nil {
 		switch err {
@@ -78,11 +82,13 @@ func (service BlobStore) File(name string) (File, error) {
 		return File{}, err
 	}
 
+	log.Println("Retrieving service account credentials.")
 	creds, err := google.FindDefaultCredentials(service.context, storage.ScopeFullControl)
 	if err != nil {
 		return File{}, err
 	}
 
+	log.Printf("Decoding JSON: %s\n", creds.JSON)
 	conf, err := google.JWTConfigFromJSON(creds.JSON)
 	if err != nil {
 		return File{}, err
@@ -101,10 +107,12 @@ func (service BlobStore) File(name string) (File, error) {
 		opts.PrivateKey = conf.PrivateKey
 	}
 
+	log.Println("Requesting signed URL for object.")
 	signedUrl, err := storage.SignedURL(service.bucketName, name, &opts)
 	if err != nil {
 		return File{}, err
 	}
+
 	return File{
 		Name: attrs.Name,
 		Path: signedUrl,
@@ -118,6 +126,8 @@ func signBytes(account string, context context.Context) func([]byte) ([]byte, er
 			return nil, err
 		}
 		name := "projects/-/serviceAccounts/" + account
+
+		log.Println("Signing blob for service account.")
 		resp, err := client.SignBlob(context, &credentials2.SignBlobRequest{
 			Name: name,
 			Delegates: []string{
