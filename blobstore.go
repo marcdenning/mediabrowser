@@ -5,9 +5,11 @@ import (
 	"cloud.google.com/go/storage"
 	"context"
 	"errors"
+	"fmt"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	credentials2 "google.golang.org/genproto/googleapis/iam/credentials/v1"
+	"gopkg.in/square/go-jose.v2/jwt"
 	"log"
 	"time"
 )
@@ -88,25 +90,33 @@ func (service BlobStore) File(name string) (File, error) {
 		return File{}, err
 	}
 
-	token, _ := creds.TokenSource.Token()
-	log.Println("Token info: ", token)
-	log.Println("Decoding JSON")
-	conf, err := google.JWTConfigFromJSON(creds.JSON)
-	if err != nil {
-		return File{}, err
-	}
-
 	opts := storage.SignedURLOptions{
-		Expires:        time.Now().Add(oneDay),
-		GoogleAccessID: conf.Email,
-		Method:         "GET",
-		Scheme:         storage.SigningSchemeV4,
+		Expires: time.Now().Add(oneDay),
+		Method:  "GET",
+		Scheme:  storage.SigningSchemeV4,
 	}
 
-	if conf.PrivateKey == nil || len(conf.PrivateKey) == 0 {
-		opts.SignBytes = signBytes(conf.Email, service.context)
+	if creds.JSON == nil {
+		token, _ := creds.TokenSource.Token()
+		accessToken, err := jwt.ParseSigned(token.AccessToken)
+		if err != nil {
+			return File{}, err
+		}
+		claims := make(map[string]interface{})
+		if err := accessToken.Claims("sub", &claims); err != nil {
+			return File{}, err
+		}
+		email := fmt.Sprintf("%s", claims["sub"])
+		opts.GoogleAccessID = email
+		opts.SignBytes = signBytes(email, service.context)
 	} else {
+		log.Println("Decoding JSON")
+		conf, err := google.JWTConfigFromJSON(creds.JSON)
+		if err != nil {
+			return File{}, err
+		}
 		opts.PrivateKey = conf.PrivateKey
+		opts.GoogleAccessID = conf.Email
 	}
 
 	log.Println("Requesting signed URL for object.")
