@@ -91,11 +91,11 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			log.Println("Could not retrieve file info.", err)
 			switch err {
-			default:
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
 			case ErrFileNotFound:
 				http.NotFound(w, r)
+				return
+			default:
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
