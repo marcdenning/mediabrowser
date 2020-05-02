@@ -88,7 +88,9 @@ func (service BlobStore) File(name string) (File, error) {
 		return File{}, err
 	}
 
-	log.Printf("Decoding JSON: %s\n", creds.JSON)
+	token, _ := creds.TokenSource.Token()
+	log.Println("Token info: ", token)
+	log.Println("Decoding JSON")
 	conf, err := google.JWTConfigFromJSON(creds.JSON)
 	if err != nil {
 		return File{}, err
