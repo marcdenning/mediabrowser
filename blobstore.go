@@ -1,15 +1,12 @@
 package main
 
 import (
-	"cloud.google.com/go/iam/credentials/apiv1"
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/storage"
 	"context"
 	"errors"
-	"fmt"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
-	credentials2 "google.golang.org/genproto/googleapis/iam/credentials/v1"
-	"gopkg.in/square/go-jose.v2/jwt"
+	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 	"log"
 	"time"
 )
@@ -25,9 +22,11 @@ type File struct {
 }
 
 type BlobStore struct {
-	context       context.Context
-	storageClient storage.Client
-	bucketName    string
+	context              context.Context
+	storageClient        storage.Client
+	bucketName           string
+	serviceAccountName   string
+	privateKeySecretName string
 }
 
 func (service BlobStore) Files(name string) ([]File, error) {
@@ -84,39 +83,26 @@ func (service BlobStore) File(name string) (File, error) {
 		return File{}, err
 	}
 
-	log.Println("Retrieving service account credentials.")
-	creds, err := google.FindDefaultCredentials(service.context, storage.ScopeFullControl)
+	secretClient, err := secretmanager.NewClient(service.context)
+	if err != nil {
+		return File{}, err
+	}
+
+	accessRequest := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: service.privateKeySecretName,
+	}
+
+	result, err := secretClient.AccessSecretVersion(service.context, accessRequest)
 	if err != nil {
 		return File{}, err
 	}
 
 	opts := storage.SignedURLOptions{
-		Expires: time.Now().Add(oneDay),
-		Method:  "GET",
-		Scheme:  storage.SigningSchemeV4,
-	}
-
-	if creds.JSON == nil {
-		token, _ := creds.TokenSource.Token()
-		accessToken, err := jwt.ParseSigned(token.AccessToken)
-		if err != nil {
-			return File{}, err
-		}
-		claims := make(map[string]interface{})
-		if err := accessToken.Claims("sub", &claims); err != nil {
-			return File{}, err
-		}
-		email := fmt.Sprintf("%s", claims["sub"])
-		opts.GoogleAccessID = email
-		opts.SignBytes = signBytes(email, service.context)
-	} else {
-		log.Println("Decoding JSON")
-		conf, err := google.JWTConfigFromJSON(creds.JSON)
-		if err != nil {
-			return File{}, err
-		}
-		opts.PrivateKey = conf.PrivateKey
-		opts.GoogleAccessID = conf.Email
+		Expires:        time.Now().Add(oneDay),
+		GoogleAccessID: service.serviceAccountName,
+		PrivateKey:     result.Payload.Data,
+		Method:         "GET",
+		Scheme:         storage.SigningSchemeV4,
 	}
 
 	log.Println("Requesting signed URL for object.")
@@ -129,27 +115,4 @@ func (service BlobStore) File(name string) (File, error) {
 		Name: attrs.Name,
 		Path: signedUrl,
 	}, nil
-}
-
-func signBytes(account string, context context.Context) func([]byte) ([]byte, error) {
-	return func(bytes []byte) ([]byte, error) {
-		client, err := credentials.NewIamCredentialsClient(context)
-		if err != nil {
-			return nil, err
-		}
-		name := "projects/-/serviceAccounts/" + account
-
-		log.Println("Signing blob for service account.")
-		resp, err := client.SignBlob(context, &credentials2.SignBlobRequest{
-			Name: name,
-			Delegates: []string{
-				name,
-			},
-			Payload: bytes,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return resp.SignedBlob, nil
-	}
 }

@@ -111,9 +111,11 @@ func main() {
 		log.Fatal(err)
 	}
 	blobService := BlobStore{
-		context:       ctx,
-		storageClient: *client,
-		bucketName:    os.Getenv("BUCKET_NAME"),
+		context:              ctx,
+		storageClient:        *client,
+		bucketName:           os.Getenv("BUCKET_NAME"),
+		serviceAccountName:   os.Getenv("SERVICE_ACCOUNT_NAME"),
+		privateKeySecretName: os.Getenv("PK_SECRET_NAME"),
 	}
 
 	log.Print("Media browser started.")
