@@ -8,6 +8,7 @@ import (
 	"google.golang.org/api/iterator"
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 	"log"
+	"path"
 	"time"
 )
 
@@ -49,13 +50,13 @@ func (service BlobStore) Files(name string) ([]File, error) {
 		}
 		if attrs.Prefix != "" {
 			files = append(files, File{
-				Name:        attrs.Prefix,
+				Name:        path.Base(attrs.Prefix),
 				IsDirectory: true,
 				Path:        "/" + attrs.Prefix,
 			})
 		} else if attrs.Name != name {
 			files = append(files, File{
-				Name: attrs.Name,
+				Name: path.Base(attrs.Name),
 				Path: "/" + attrs.Name,
 			})
 		}
