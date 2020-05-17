@@ -61,15 +61,17 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 			if requestPath != "/" {
-				files = append(files, File{
-					Name:        "..",
-					IsDirectory: true,
-					Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
-				})
+				files = append([]File{
+					{
+						Name:        "..",
+						IsDirectory: true,
+						Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
+					},
+				}, files...)
 			}
 
 			err = tmpl.Execute(w, FilePageData{
-				PageTitle: "Media Browser",
+				PageTitle: fmt.Sprintf("Index of %s", objectName),
 				Files:     files,
 			})
 			if err != nil {

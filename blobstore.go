@@ -20,6 +20,7 @@ type File struct {
 	Name        string
 	IsDirectory bool
 	Path        string
+	Size        int64
 }
 
 type BlobStore struct {
@@ -50,7 +51,7 @@ func (service BlobStore) Files(name string) ([]File, error) {
 		}
 		if attrs.Prefix != "" {
 			files = append(files, File{
-				Name:        path.Base(attrs.Prefix),
+				Name:        path.Base(attrs.Prefix) + "/",
 				IsDirectory: true,
 				Path:        "/" + attrs.Prefix,
 			})
@@ -58,6 +59,7 @@ func (service BlobStore) Files(name string) ([]File, error) {
 			files = append(files, File{
 				Name: path.Base(attrs.Name),
 				Path: "/" + attrs.Name,
+				Size: attrs.Size,
 			})
 		}
 	}
