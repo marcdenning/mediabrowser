@@ -60,23 +60,29 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 				log.Println(err.Error())
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			if requestPath != "/" {
-				files = append([]File{
-					{
-						Name:        "..",
-						IsDirectory: true,
-						Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
-					},
-				}, files...)
-			}
+			switch r.Method {
+			case http.MethodHead:
+				w.Header().Add("Content-Type", "text/html")
+				w.WriteHeader(http.StatusOK)
+			case http.MethodGet:
+				if requestPath != "/" {
+					files = append([]File{
+						{
+							Name:        "..",
+							IsDirectory: true,
+							Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
+						},
+					}, files...)
+				}
 
-			err = tmpl.Execute(w, FilePageData{
-				PageTitle: fmt.Sprintf("Index of %s", objectName),
-				Files:     files,
-			})
-			if err != nil {
-				log.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				err = tmpl.Execute(w, FilePageData{
+					PageTitle: fmt.Sprintf("Index of %s", objectName),
+					Files:     files,
+				})
+				if err != nil {
+					log.Println(err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
 			}
 			return
 		}
@@ -102,7 +108,14 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		http.Redirect(w, r, file.Path, http.StatusFound)
+		switch r.Method {
+		case http.MethodHead:
+			w.Header().Add("Content-Type", file.ContentType)
+			w.Header().Add("Content-Length", fmt.Sprintf("%d", file.Size))
+			w.WriteHeader(http.StatusOK)
+		case http.MethodGet:
+			http.Redirect(w, r, file.Path, http.StatusFound)
+		}
 	}
 }
 
