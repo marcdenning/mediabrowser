@@ -119,6 +119,12 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+func serveStaticFile(name string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, name)
+	}
+}
+
 func main() {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -146,6 +152,7 @@ func main() {
 		handler = authenticateHandler(serveBlobs(blobService), username, password)
 	}
 
+	http.HandleFunc("/favicon.ico", serveStaticFile("favicon.ico"))
 	http.HandleFunc("/", handler)
 
 	port := os.Getenv("PORT")

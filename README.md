@@ -27,3 +27,7 @@ This kind of optimization makes Media Browser a perfect fit for serverless platf
 * [Google Cloud Secret Manager](https://cloud.google.com/secret-manager/docs/)
 * [Google Cloud Run](https://cloud.google.com/run/docs/)
 * [Google Cloud Build](https://cloud.google.com/cloud-build/docs/)
+
+## Credit
+
+Favicon Video File by Vicons Design from the Noun Project
