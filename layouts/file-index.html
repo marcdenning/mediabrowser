@@ -10,15 +10,21 @@
 <table>
     <thead>
     <tr>
+        <th valign="top">&nbsp;</th>
         <th>Name</th>
+        <th>Last modified</th>
         <th>Size</th>
+        <th>Description</th>
     </tr>
     </thead>
     <tbody>
     {{range .Files}}
         <tr>
+            <td valign="top">&nbsp;</td>
             <td><a href="{{.Path}}">{{.Name}}</a></td>
-            <td>{{.Size}}</td>
+            <td align="right">{{formatTime .LastModified}}</td>
+            <td align="right">{{formatBytes .Size}}</td>
+            <td>&nbsp;</td>
         </tr>
     {{end}}
     </tbody>

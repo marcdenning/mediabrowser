@@ -17,11 +17,12 @@ var (
 )
 
 type File struct {
-	Name        string
-	IsDirectory bool
-	Path        string
-	ContentType string
-	Size        int64
+	Name         string
+	IsDirectory  bool
+	Path         string
+	ContentType  string
+	Size         int64
+	LastModified time.Time
 }
 
 type BlobStore struct {
@@ -52,18 +53,20 @@ func (service BlobStore) Files(name string) ([]File, error) {
 		}
 		if attrs.Prefix != "" {
 			files = append(files, File{
-				Name:        path.Base(attrs.Prefix) + "/",
-				IsDirectory: true,
-				Path:        "/" + attrs.Prefix,
-				ContentType: attrs.ContentType,
-				Size:        attrs.Size,
+				Name:         path.Base(attrs.Prefix) + "/",
+				IsDirectory:  true,
+				Path:         "/" + attrs.Prefix,
+				ContentType:  attrs.ContentType,
+				Size:         attrs.Size,
+				LastModified: attrs.Updated,
 			})
 		} else if attrs.Name != name {
 			files = append(files, File{
-				Name:        path.Base(attrs.Name),
-				Path:        "/" + attrs.Name,
-				ContentType: attrs.ContentType,
-				Size:        attrs.Size,
+				Name:         path.Base(attrs.Name),
+				Path:         "/" + attrs.Name,
+				ContentType:  attrs.ContentType,
+				Size:         attrs.Size,
+				LastModified: attrs.Updated,
 			})
 		}
 	}
@@ -119,9 +122,10 @@ func (service BlobStore) File(name string) (File, error) {
 	}
 
 	return File{
-		Name:        attrs.Name,
-		Path:        signedUrl,
-		ContentType: attrs.ContentType,
-		Size:        attrs.Size,
+		Name:         attrs.Name,
+		Path:         signedUrl,
+		ContentType:  attrs.ContentType,
+		Size:         attrs.Size,
+		LastModified: attrs.Updated,
 	}, nil
 }

@@ -4,6 +4,7 @@ import (
 	"cloud.google.com/go/storage"
 	"context"
 	"fmt"
+	"github.com/c2h5oh/datasize"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,11 +12,20 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 )
 
 type FilePageData struct {
 	PageTitle string
 	Files     []File
+}
+
+func formatTimeForHTML(t time.Time) string {
+	return t.Format("2006-01-02 15:04")
+}
+
+func formatBytesForHTML(b int64) string {
+	return datasize.ByteSize(b).HR()
 }
 
 func authenticateHandler(handler func(w http.ResponseWriter, r *http.Request), username, password string) func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +53,14 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 		log.Printf("Received request for path %s\n", requestPath)
 
 		if path.Ext(requestPath) == "" {
-			tmpl := template.Must(template.ParseFiles("layouts/file-index.html"))
+			tmpl, err := template.New("layouts/file-index.html").Funcs(template.FuncMap{
+				"formatTime":  formatTimeForHTML,
+				"formatBytes": formatBytesForHTML,
+			}).ParseFiles("layouts/file-index.html")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 
 			if !strings.HasSuffix(requestPath, "/") {
 				requestPath += "/"
