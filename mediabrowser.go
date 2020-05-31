@@ -25,7 +25,10 @@ func formatTimeForHTML(t time.Time) string {
 }
 
 func formatBytesForHTML(b int64) string {
-	return datasize.ByteSize(b).HR()
+	if b == 0 {
+		return "-"
+	}
+	return strings.TrimSuffix(datasize.ByteSize(b).HR(), "B")
 }
 
 func authenticateHandler(handler func(w http.ResponseWriter, r *http.Request), username, password string) func(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +56,7 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 		log.Printf("Received request for path %s\n", requestPath)
 
 		if path.Ext(requestPath) == "" {
-			tmpl, err := template.New("layouts/file-index.html").Funcs(template.FuncMap{
+			tmpl, err := template.New("file-index.html").Funcs(template.FuncMap{
 				"formatTime":  formatTimeForHTML,
 				"formatBytes": formatBytesForHTML,
 			}).ParseFiles("layouts/file-index.html")
@@ -85,14 +88,14 @@ func serveBlobs(service BlobStore) func(w http.ResponseWriter, r *http.Request) 
 				if requestPath != "/" {
 					files = append([]File{
 						{
-							Name:        "..",
+							Name:        "Parent Directory",
 							IsDirectory: true,
 							Path:        path.Dir(strings.TrimSuffix(requestPath, "/")),
 						},
 					}, files...)
 				}
 
-				err = tmpl.Execute(w, FilePageData{
+				err = tmpl.Lookup("file-index.html").Execute(w, FilePageData{
 					PageTitle: fmt.Sprintf("Index of %s", objectName),
 					Files:     files,
 				})
