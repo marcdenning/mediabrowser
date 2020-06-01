@@ -6,7 +6,7 @@ steps:
   - name: gcr.io/cloud-builders/gcloud
     args: ['run', 'deploy', 'mediabrowser', '--platform', 'managed', '--region', '$_REGION',
            '--image', 'gcr.io/$PROJECT_ID/mediabrowser:latest', '--allow-unauthenticated',
-           '--set-env-vars', 'BUCKET_NAME=$_BUCKET_NAME,WEB_USERNAME=$_WEB_USERNAME,WEB_PASSWORD=$_WEB_PASSWORD']
+           '--set-env-vars', 'BUCKET_NAME=$_BUCKET_NAME,WEB_USERNAME=$_WEB_USERNAME,WEB_PASSWORD=$_WEB_PASSWORD,PK_SECRET_NAME=$_PK_SECRET_NAME']
 substitutions:
   _REGION: us-east1
   _BUCKET_NAME: mediabrowser
