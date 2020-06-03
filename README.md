@@ -35,10 +35,10 @@ This enables better compatibility with clients that are looking for that particu
 4. Enable Secret Manager and store the private key as a secret.
 5. Enable Cloud Build and Cloud Run, then execute a deployment of the app substituting the environment variables as needed:
     ```bash
-    gcloud run deploy mediabrowser --platform managed --region $REGION --image gcr.io/$PROJECT_ID/mediabrowser:latest --allow-unauthenticated --set-env-vars BUCKET_NAME=$BUCKET_NAME,WEB_USERNAME=$WEB_USERNAME,WEB_PASSWORD=$WEB_PASSWORD,PK_SECRET_NAME=$PK_SECRET_NAME
+    gcloud run deploy mediabrowser --platform managed --region $REGION --image gcr.io/$PROJECT_ID/mediabrowser:latest --allow-unauthenticated --service-account $_SERVICE_ACCOUNT_EMAIL --set-env-vars BUCKET_NAME=$BUCKET_NAME,WEB_USERNAME=$WEB_USERNAME,WEB_PASSWORD=$WEB_PASSWORD,PK_SECRET_NAME=$PK_SECRET_NAME
     ```
     Alternatively, you can set up a Cloud Build pipeline using the [`cloudbuild.yaml`](/cloudbuild.yaml) file included in the repo and trigger the pipeline.
-    _Note:_ within the Cloud Run environment, the `GOOGLE_APPLICATION_CREDENTIALS` variable does not need to be specified - an implicit account is used.
+    _Note:_ within the Cloud Run environment, the `GOOGLE_APPLICATION_CREDENTIALS` variable does not need to be specified - the specified service account is exposed to the runtime automatically.
 6. Now, you should be able to upload media into your Cloud Storage bucket and navigate to the Cloud Run app URL to browse content.
 
 ## Technology
