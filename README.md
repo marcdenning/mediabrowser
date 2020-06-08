@@ -28,18 +28,21 @@ This enables better compatibility with clients that are looking for that particu
 ### Google Cloud Setup
 
 1. Create a project for your app.
-2. Enable Cloud Storage and create a bucket to serve media. No special permissions are required for the bucket.
-3. Create a service account to use for the app. Securely store the credentials file. Extract the private key. The service account needs permissions for:
-    1. Reading Cloud Storage objects
-    2. Reading Secret Manager payloads
-4. Enable Secret Manager and store the private key as a secret.
-5. Enable Cloud Build and Cloud Run, then execute a deployment of the app substituting the environment variables as needed:
+2. Install the [Google Cloud SDK](https://cloud.google.com/sdk) locally as well as the `jq` program. Then, you may execute the deployment script [`deploy-mediabrowser-dependencies.sh`](/deploy-mediabrowser-dependencies.sh) with the name of your project as the first argument.
+   This script performs the following operations:
+    1. Enables the Cloud APIs necessary for the app.
+    2. Create a Cloud Storage bucket to serve media. No special permissions are required for the bucket.
+    3. Create a service account to use for the app. Securely store the credentials file. Extract the private key. The service account needs permissions for:
+        1. Reading Cloud Storage objects
+        2. Reading Secret Manager payloads
+    4. Store the private key as a secret in Secret Manager.
+3. Make sure that Cloud Build and Cloud Run are enabled (they are enabled by the deployment script), then execute a deployment of the app substituting the environment variables as needed:
     ```bash
     gcloud run deploy mediabrowser --platform managed --region $REGION --image gcr.io/$PROJECT_ID/mediabrowser:latest --allow-unauthenticated --service-account $_SERVICE_ACCOUNT_EMAIL --set-env-vars BUCKET_NAME=$BUCKET_NAME,WEB_USERNAME=$WEB_USERNAME,WEB_PASSWORD=$WEB_PASSWORD,PK_SECRET_NAME=$PK_SECRET_NAME
     ```
     Alternatively, you can set up a Cloud Build pipeline using the [`cloudbuild.yaml`](/cloudbuild.yaml) file included in the repo and trigger the pipeline.
     _Note:_ within the Cloud Run environment, the `GOOGLE_APPLICATION_CREDENTIALS` variable does not need to be specified - the specified service account is exposed to the runtime automatically.
-6. Now, you should be able to upload media into your Cloud Storage bucket and navigate to the Cloud Run app URL to browse content.
+4. Now, you should be able to upload media into your Cloud Storage bucket and navigate to the Cloud Run app URL to browse content.
 
 ## Technology
 
