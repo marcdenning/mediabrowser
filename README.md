@@ -14,14 +14,23 @@ This kind of optimization makes Media Browser a perfect fit for serverless platf
 The interface and HTTP responses are modeled after the Apache HTTPD directory browsing feature.
 This enables better compatibility with clients that are looking for that particular layout (ex. Kodi).
 
+## Getting Started
+
+1. Run `go build .` from the project directory to download packages and build the application.
+2. _Optional:_ Execute the steps in [Google Cloud Setup](#google-cloud-setup) to configure your own Google Cloud project.
+3. Set environment variables for your own Google Cloud project. See below 
+4. Spin up the application by executing the `mediabrowser` executable with your environment variables configured.
+
 ## Configuration
 
 ### Environment Variables
 
 * `GOOGLE_APPLICATION_CREDENTIALS` _(required)_ - path to Google Cloud service account key file (JSON file); the service account must have Cloud Storage object reader and Secret Manager Secret Accessor roles
+  * For local development, you may [use your own account credentials](https://cloud.google.com/docs/authentication/application-default-credentials#personal) by authenticating with the `gcloud` CLI. 
 * `BUCKET_NAME` _(required)_ - name of the Google Cloud Storage bucket to browse
 * `SERVICE_ACCOUNT_NAME` _(required)_ - name of the IAM service account used to access Cloud Storage and Secret Manager
 * `PK_SECRET_NAME` _(required)_ - resource ID of the secret storing the service account's private key
+* `PORT` _(optional)_ - set the port to expose the HTTP server on
 * `WEB_USERNAME` _(optional)_ - username to expect for HTTP Basic Authentication
 * `WEB_PASSWORD` _(optional)_ - password to expect for HTTP Basic Authentication
 
