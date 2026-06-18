@@ -3,6 +3,7 @@ package main
 import (
 	"cloud.google.com/go/storage"
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"github.com/c2h5oh/datasize"
 	"html/template"
@@ -40,7 +41,9 @@ func authenticateHandler(handler func(w http.ResponseWriter, r *http.Request), u
 			http.Error(w, "Could not find or parse Authorization header.", http.StatusUnauthorized)
 			return
 		}
-		if username != providedUser || password != providedPass {
+		validUser := subtle.ConstantTimeCompare([]byte(username), []byte(providedUser))
+		validPass := subtle.ConstantTimeCompare([]byte(password), []byte(providedPass))
+		if validUser+validPass != 2 {
 			log.Println("Invalid credentials provided.")
 			w.Header().Add("WWW-Authenticate", "Basic realm=\"mediabrowser\"")
 			http.Error(w, "Invalid credentials provided.", http.StatusUnauthorized)
@@ -162,10 +165,10 @@ func main() {
 	log.Print("Media browser started.")
 
 	var handler http.HandlerFunc
-	username, ok := os.LookupEnv("WEB_USERNAME")
-	password, ok := os.LookupEnv("WEB_PASSWORD")
+	username, usernameOk := os.LookupEnv("WEB_USERNAME")
+	password, passwordOk := os.LookupEnv("WEB_PASSWORD")
 
-	if !ok {
+	if !usernameOk || !passwordOk {
 		log.Println("Variables WEB_USERNAME and WEB_PASSWORD not set. Will not authenticate requests.")
 		handler = serveBlobs(blobService)
 	} else {
